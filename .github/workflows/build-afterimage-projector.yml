@@ -1,0 +1,56 @@
+name: Build AfterImage Projector APK
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'compact/**'
+      - '.github/workflows/build-afterimage-projector.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Rebuild source ZIP
+        run: |
+          cat compact/part*.b64 | base64 -d > compact.zip
+          unzip -q compact.zip
+          test -f AfterImageProjectorCompact/settings.gradle
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build installable debug APK
+        working-directory: AfterImageProjectorCompact
+        run: gradle --no-daemon :app:assembleDebug
+
+      - name: Prepare APK
+        run: cp AfterImageProjectorCompact/app/build/outputs/apk/debug/app-debug.apk AfterImage-Lab-Projector-Android-v1.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: AfterImage-Lab-Projector-APK
+          path: AfterImage-Lab-Projector-Android-v1.apk
+          retention-days: 30
